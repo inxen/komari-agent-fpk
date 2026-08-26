@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 解析 komari-agent 版本
+      - name: 解析 komari-agent 版本（含构建序号）
         id: ver
         run: |
           if [ "${{ inputs.version }}" = "latest" ]; then
@@ -34,6 +34,7 @@ jobs:
             TAG=${{ inputs.version }}
           fi
           VER=$(echo "$TAG" | sed 's/^v//')
+          VER="${VER}-${{ github.run_number }}"   # 追加构建序号：1.2.60-1、1.2.60-2 ...
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "ver=$VER" >> "$GITHUB_OUTPUT"
 
@@ -79,7 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 解析 komari-agent 版本
+      - name: 解析 komari-agent 版本（含构建序号）
         id: ver
         run: |
           if [ "${{ inputs.version }}" = "latest" ]; then
@@ -88,6 +89,7 @@ jobs:
             TAG=${{ inputs.version }}
           fi
           VER=$(echo "$TAG" | sed 's/^v//')
+          VER="${VER}-${{ github.run_number }}"   # 追加构建序号
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "ver=$VER" >> "$GITHUB_OUTPUT"
 
@@ -142,7 +144,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VER=$(ls artifacts/*/*.fpk | head -1 | sed -E 's/.*-([0-9][^.]*)\.fpk/\1/')
+          VER=$(ls artifacts/*/*.fpk | head -1 | sed -E 's/.*-([0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?)\.fpk/\1/')
           TAG="komari-agent-fpk-$VER"
           gh release create "$TAG" artifacts/*/*.fpk \
             --repo "$GITHUB_REPOSITORY" \
