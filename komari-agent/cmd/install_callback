@@ -1,0 +1,31 @@
+#!/bin/bash
+# Komari Agent - install_callback
+# 使用安装向导收集的值生成初始 config.json（若已存在则跳过，升级保留配置）
+
+APP_DIR="${TRIM_APPDEST:-/var/apps/komari-agent/target}"
+ETC_DIR="${TRIM_PKGETC:-/var/apps/komari-agent/etc}"
+CONFIG_PATH="${ETC_DIR}/config.json"
+GEN_CONFIG_SH="${APP_DIR}/bin/gen-config.sh"
+
+if [ -f "$CONFIG_PATH" ]; then
+  exit 0
+fi
+
+export WIZARD_ENDPOINT="${wizard_endpoint:-}"
+export WIZARD_TOKEN="${wizard_token:-}"
+export WIZARD_INTERVAL="${wizard_interval:-3}"
+export WIZARD_DISABLE_WEB_SSH="${wizard_disable_web_ssh:-false}"
+export WIZARD_ENABLE_GPU="${wizard_enable_gpu:-false}"
+export WIZARD_IGNORE_UNSAFE_CERT="${wizard_ignore_unsafe_cert:-false}"
+
+if ! bash "$GEN_CONFIG_SH" "$CONFIG_PATH"; then
+  echo "生成 config.json 失败，请检查安装向导输入。" > "$TRIM_TEMP_LOGFILE"
+  exit 1
+fi
+
+chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+if [ -n "${TRIM_USERNAME:-}" ] && [ "$(id -un)" != "$TRIM_USERNAME" ]; then
+  chown "$TRIM_USERNAME:$TRIM_GROUPNAME" "$CONFIG_PATH" "$ETC_DIR" 2>/dev/null || true
+fi
+
+exit 0

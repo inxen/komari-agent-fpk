@@ -1,0 +1,12 @@
+{
+  ".url": {
+    "komari-agent.main": {
+      "title": "Komari Agent",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "protocol": "",
+      "url": "/cgi/ThirdParty/komari-agent/index.cgi/",
+      "allUsers": true
+    }
+  }
+}

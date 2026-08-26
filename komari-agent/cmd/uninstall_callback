@@ -1,0 +1,30 @@
+#!/bin/bash
+# Komari Agent - uninstall_callback
+# 卸载时按用户选择清理：
+#   1. 应用配置（etc/config.json）—— 卸载向导 wizard_keep_config=true 时保留，否则删除（重装为全新配置）
+#   2. 运行数据（var 下的日志/PID）
+#   3. 应用中心静态图标缓存（防止同名应用重装后图标不刷新）
+
+ETC_DIR="${TRIM_PKGETC:-/var/apps/komari-agent/etc}"
+VAR_DIR="${TRIM_PKGVAR:-/var/apps/komari-agent/var}"
+
+# 1. 配置：卸载向导选择"保留"则不删；默认/未选 = 完全卸载（删除配置与备份）
+if [ "${wizard_keep_config:-false}" != "true" ]; then
+  rm -f "${ETC_DIR}/config.json" "${ETC_DIR}/config.json.bak" 2>/dev/null
+fi
+
+# 2. 运行数据
+rm -f "${VAR_DIR}/agent.log" "${VAR_DIR}/supervisor.log" \
+      "${VAR_DIR}/agent.pid" "${VAR_DIR}/supervisor.pid" 2>/dev/null
+
+# 3. 应用中心静态图标缓存（fnOS 卸载流程不会自动删除）
+for d in \
+  /usr/trim/var/app-center-static/icon/komari-agent \
+  /usr/trim/app-center-static/icon/komari-agent \
+  /var/app-center-static/icon/komari-agent \
+  /var/cache/app-center/icon/komari-agent
+do
+  [ -d "$d" ] && rm -rf "$d" 2>/dev/null
+done
+
+exit 0

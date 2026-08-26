@@ -1,0 +1,14 @@
+appname=komari-agent
+version=0.1.8
+desc=Komari Agent 是一款轻量级服务器监控客户端，可将飞牛 NAS 的系统运行状态上报至 Komari 监控服务端。
+display_name=Komari Agent
+maintainer=Komari 社区
+maintainer_url=https://github.com/komari-monitor/komari-agent
+distributor=inxen
+distributor_url=https://github.com/inxen/komari-agent-fpk
+source=thirdparty
+platform=x86
+os_min_version=1.1.3100
+desktop_uidir=ui
+desktop_applaunchname=komari-agent.main
+ctl_stop=true

@@ -1,0 +1,151 @@
+name: build-komari-agent-fpk
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "komari-agent 版本 tag（默认 latest = 最新正式版）"
+        required: false
+        default: "latest"
+      publish:
+        description: "发布为 GitHub Release（true/false，默认 false）"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+
+env:
+  FNPACK_VERSION: 1.2.3
+
+jobs:
+  x86_64:
+    name: "打包 x86_64"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析 komari-agent 版本
+        id: ver
+        run: |
+          if [ "${{ inputs.version }}" = "latest" ]; then
+            TAG=$(curl -fsSL https://api.github.com/repos/komari-monitor/komari-agent/releases/latest | jq -r .tag_name)
+          else
+            TAG=${{ inputs.version }}
+          fi
+          VER=$(echo "$TAG" | sed 's/^v//')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: 下载 komari-agent linux-amd64 二进制
+        run: |
+          BASE="https://github.com/komari-monitor/komari-agent/releases"
+          if [ "${{ inputs.version }}" = "latest" ]; then
+            URL="$BASE/latest/download/komari-agent-linux-amd64"
+          else
+            URL="$BASE/download/${{ inputs.version }}/komari-agent-linux-amd64"
+          fi
+          curl -fL -o komari-agent/app/komari-agent "$URL"
+          chmod +x komari-agent/app/komari-agent
+          ls -lh komari-agent/app/komari-agent
+
+      - name: 下载 fnpack (linux-amd64)
+        run: |
+          curl -fL -o fnpack "https://static2.fnnas.com/fnpack/fnpack-${FNPACK_VERSION}-linux-amd64"
+          chmod +x fnpack
+          ./fnpack --help >/dev/null 2>&1 || true
+
+      - name: 改写 manifest（platform=x86, version）
+        run: |
+          sed -i "s/^platform=.*/platform=x86/" komari-agent/manifest
+          sed -i "s/^version=.*/version=${{ steps.ver.outputs.ver }}/" komari-agent/manifest
+          grep -E "^(platform|version)=" komari-agent/manifest
+
+      - name: 打包 fpk
+        run: |
+          ./fnpack build --directory komari-agent
+          ls -lh komari-agent.fpk
+          mv komari-agent.fpk "komari-agent-x86_64-${{ steps.ver.outputs.ver }}.fpk"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: komari-agent-x86_64
+          path: komari-agent-x86_64-*.fpk
+
+  arm64:
+    name: "打包 arm64"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析 komari-agent 版本
+        id: ver
+        run: |
+          if [ "${{ inputs.version }}" = "latest" ]; then
+            TAG=$(curl -fsSL https://api.github.com/repos/komari-monitor/komari-agent/releases/latest | jq -r .tag_name)
+          else
+            TAG=${{ inputs.version }}
+          fi
+          VER=$(echo "$TAG" | sed 's/^v//')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: 下载 komari-agent linux-arm64 二进制
+        run: |
+          BASE="https://github.com/komari-monitor/komari-agent/releases"
+          if [ "${{ inputs.version }}" = "latest" ]; then
+            URL="$BASE/latest/download/komari-agent-linux-arm64"
+          else
+            URL="$BASE/download/${{ inputs.version }}/komari-agent-linux-arm64"
+          fi
+          curl -fL -o komari-agent/app/komari-agent "$URL"
+          chmod +x komari-agent/app/komari-agent
+          ls -lh komari-agent/app/komari-agent
+
+      - name: 下载 fnpack (linux-amd64)
+        run: |
+          curl -fL -o fnpack "https://static2.fnnas.com/fnpack/fnpack-${FNPACK_VERSION}-linux-amd64"
+          chmod +x fnpack
+          ./fnpack --help >/dev/null 2>&1 || true
+
+      - name: 改写 manifest（platform=arm, version）
+        run: |
+          sed -i "s/^platform=.*/platform=arm/" komari-agent/manifest
+          sed -i "s/^version=.*/version=${{ steps.ver.outputs.ver }}/" komari-agent/manifest
+          grep -E "^(platform|version)=" komari-agent/manifest
+
+      - name: 打包 fpk
+        run: |
+          ./fnpack build --directory komari-agent
+          ls -lh komari-agent.fpk
+          mv komari-agent.fpk "komari-agent-arm64-${{ steps.ver.outputs.ver }}.fpk"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: komari-agent-arm64
+          path: komari-agent-arm64-*.fpk
+
+  release:
+    name: 发布 GitHub Release（可选）
+    if: github.event.inputs.publish == 'true'
+    needs: [x86_64, arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: 列出产物
+        run: find artifacts -type f -name "*.fpk" | sort
+      - name: 创建 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(ls artifacts/*/*.fpk | head -1 | sed -E 's/.*-([0-9][^.]*)\.fpk/\1/')
+          TAG="komari-agent-fpk-$VER"
+          gh release create "$TAG" artifacts/*/*.fpk \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Komari Agent for fnOS $VER" \
+            --notes "fnOS 应用包（x86_64 / arm64），内置 komari-agent v${{ github.event.inputs.version }}。" \
+            --draft || true

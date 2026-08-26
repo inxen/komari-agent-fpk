@@ -1,0 +1,16 @@
+{
+  "endpoint": "",
+  "token": "",
+  "interval": 3,
+  "disable_auto_update": true,
+  "disable_web_ssh": false,
+  "ignore_unsafe_cert": false,
+  "max_retries": 3,
+  "reconnect_interval": 5,
+  "info_report_interval": 5,
+  "protocol_version": 2,
+  "enable_gpu": false,
+  "_fnos_log_enabled": true,
+  "_fnos_log_max_size_mb": 5,
+  "_fnos_log_keep": 3
+}

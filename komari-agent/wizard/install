@@ -1,0 +1,67 @@
+[
+  {
+    "stepTitle": "Komari 面板连接",
+    "items": [
+      {
+        "type": "text",
+        "field": "wizard_endpoint",
+        "label": "面板地址",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入面板地址"
+          },
+          {
+            "pattern": "^https?://.+",
+            "message": "请输入以 http:// 或 https:// 开头的地址"
+          }
+        ]
+      },
+      {
+        "type": "password",
+        "field": "wizard_token",
+        "label": "Agent Token",
+        "rules": [
+          {
+            "required": true,
+            "message": "请输入 Token"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "field": "wizard_interval",
+        "label": "采集间隔（秒）",
+        "initValue": "3",
+        "rules": [
+          {
+            "pattern": "^[0-9]+(\\.[0-9]+)?$",
+            "message": "请输入数字"
+          }
+        ]
+      },
+      {
+        "type": "switch",
+        "field": "wizard_disable_web_ssh",
+        "label": "禁用远程控制（Web SSH）",
+        "initValue": "false"
+      },
+      {
+        "type": "switch",
+        "field": "wizard_enable_gpu",
+        "label": "启用 GPU 详细监控",
+        "initValue": "false"
+      },
+      {
+        "type": "switch",
+        "field": "wizard_ignore_unsafe_cert",
+        "label": "忽略不安全证书",
+        "initValue": "false"
+      },
+      {
+        "type": "tips",
+        "helpText": "安装完成后，可在应用内通过 JSON 编辑器修改全部配置。"
+      }
+    ]
+  }
+]

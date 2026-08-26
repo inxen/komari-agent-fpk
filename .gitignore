@@ -1,0 +1,21 @@
+# 构建产物
+*.fpk
+
+# komari-agent 二进制由构建脚本/CI 下载注入，不入库
+komari-agent/app/komari-agent
+
+# 本地构建工具
+tools/
+
+# Python
+__pycache__/
+*.pyc
+
+# WorkBuddy 项目数据（记忆/日志）
+.workbuddy/
+
+# 敏感凭据（双保险）
+user.txt
+
+# 归档资料（已移出工作区）
+fnnas_docs/

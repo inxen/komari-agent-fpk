@@ -1,0 +1,131 @@
+#!/bin/bash
+# Komari Agent - cmd/main 生命周期脚本（start/stop/status）
+# 应用进程 = agent-supervisor.sh（守护 komari-agent 子进程）
+
+APP_DIR="${TRIM_APPDEST:-/var/apps/komari-agent/target}"
+ETC_DIR="${TRIM_PKGETC:-/var/apps/komari-agent/etc}"
+VAR_DIR="${TRIM_PKGVAR:-/var/apps/komari-agent/var}"
+
+SUPERVISOR_SH="${APP_DIR}/bin/agent-supervisor.sh"
+GEN_CONFIG_SH="${APP_DIR}/bin/gen-config.sh"
+CONFIG_PATH="${ETC_DIR}/config.json"
+SUPERVISOR_PID_FILE="${VAR_DIR}/supervisor.pid"
+SUPERVISOR_LOG="${VAR_DIR}/supervisor.log"
+SUPERVISOR_LOG_MAX="${SUPERVISOR_LOG_MAX:-1048576}"   # supervisor.log 上限 1MB
+
+mkdir -p "$VAR_DIR" 2>/dev/null || true
+
+log_msg() {
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" >> "$SUPERVISOR_LOG"
+}
+
+# supervisor.log 轮转（量小，超限时简单滚动一份）
+rotate_supervisor_log() {
+  [ -f "$SUPERVISOR_LOG" ] || return 0
+  local size
+  size=$(stat -c %s "$SUPERVISOR_LOG" 2>/dev/null || echo 0)
+  [ "${size:-0}" -lt "$SUPERVISOR_LOG_MAX" ] && return 0
+  rm -f "${SUPERVISOR_LOG}.1" 2>/dev/null
+  mv -f "$SUPERVISOR_LOG" "${SUPERVISOR_LOG}.1" 2>/dev/null || true
+}
+
+check_process() {
+  local pid="$1"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+status_app() {
+  if [ -f "$SUPERVISOR_PID_FILE" ]; then
+    local pid
+    pid="$(head -n 1 "$SUPERVISOR_PID_FILE" | tr -d '[:space:]')"
+    if [ -n "$pid" ] && check_process "$pid"; then
+      return 0
+    fi
+    rm -f "$SUPERVISOR_PID_FILE"
+  fi
+  return 1
+}
+
+ensure_config() {
+  # install_callback 通常已生成；此处兜底（升级/直接启动场景）
+  [ -f "$CONFIG_PATH" ] && return 0
+  export WIZARD_ENDPOINT="${wizard_endpoint:-}"
+  export WIZARD_TOKEN="${wizard_token:-}"
+  export WIZARD_INTERVAL="${wizard_interval:-3}"
+  export WIZARD_DISABLE_WEB_SSH="${wizard_disable_web_ssh:-false}"
+  export WIZARD_ENABLE_GPU="${wizard_enable_gpu:-false}"
+  export WIZARD_IGNORE_UNSAFE_CERT="${wizard_ignore_unsafe_cert:-false}"
+  if ! bash "$GEN_CONFIG_SH" "$CONFIG_PATH"; then
+    echo "初始化 config.json 失败" > "$TRIM_TEMP_LOGFILE"
+    return 1
+  fi
+  chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+  if [ -n "${TRIM_USERNAME:-}" ] && [ "$(id -un)" != "$TRIM_USERNAME" ]; then
+    chown "$TRIM_USERNAME:$TRIM_GROUPNAME" "$CONFIG_PATH" "$ETC_DIR" 2>/dev/null || true
+  fi
+  return 0
+}
+
+start_app() {
+  status_app && return 0
+
+  ensure_config || return 1
+  rotate_supervisor_log   # 启动前轮转 supervisor.log
+
+  # 可执行位兜底（打包/解包可能丢失）
+  chmod +x "${APP_DIR}/komari-agent" 2>/dev/null || true
+  chmod +x "$SUPERVISOR_SH" "$GEN_CONFIG_SH" 2>/dev/null || true
+
+  cd "$APP_DIR" || { echo "无法进入 $APP_DIR" > "$TRIM_TEMP_LOGFILE"; return 1; }
+  bash "$SUPERVISOR_SH" >> "$SUPERVISOR_LOG" 2>&1 &
+  echo "$!" > "$SUPERVISOR_PID_FILE"
+
+  sleep 1
+  if ! status_app; then
+    echo "supervisor 启动失败，详见 $SUPERVISOR_LOG" > "$TRIM_TEMP_LOGFILE"
+    return 1
+  fi
+  return 0
+}
+
+stop_app() {
+  local pid
+
+  if [ -f "$SUPERVISOR_PID_FILE" ]; then
+    pid="$(head -n 1 "$SUPERVISOR_PID_FILE" | tr -d '[:space:]')"
+    if [ -n "$pid" ] && check_process "$pid" ]; then
+      kill -TERM "$pid" 2>>"$SUPERVISOR_LOG" || true
+      local count=0
+      while check_process "$pid" && [ "$count" -lt 15 ]; do
+        sleep 1
+        count=$((count + 1))
+      done
+      check_process "$pid" && kill -KILL "$pid" 2>>"$SUPERVISOR_LOG" || true
+    fi
+    rm -f "$SUPERVISOR_PID_FILE"
+  fi
+
+  # 兜底清理孤儿 agent
+  pkill -f "/var/apps/komari-agent/target/komari-agent" 2>/dev/null || true
+  rm -f "${VAR_DIR}/agent.pid"
+  return 0
+}
+
+case "$1" in
+  start)
+    start_app
+    ;;
+  stop)
+    stop_app
+    ;;
+  status)
+    if status_app; then
+      exit 0
+    fi
+    exit 3
+    ;;
+  *)
+    echo "Unknown command: $1" > "$TRIM_TEMP_LOGFILE"
+    exit 1
+    ;;
+esac

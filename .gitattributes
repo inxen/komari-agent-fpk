@@ -1,0 +1,23 @@
+# 强制 LF：bash 脚本/配置在 fnOS (Linux) 上运行，CRLF 会导致 $'\r' 错误
+*.sh    text eol=lf
+*.cgi   text eol=lf
+**/cmd/* text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+manifest text eol=lf
+*.ps1   text eol=lf
+*.py    text eol=lf
+*.js    text eol=lf
+*.html  text eol=lf
+
+# 无扩展名的 JSON/配置文本文件（强制 LF，避免 CRLF 破坏 fnOS 解析）
+komari-agent/app/ui/config    text eol=lf
+komari-agent/config/privilege text eol=lf
+komari-agent/config/resource  text eol=lf
+komari-agent/wizard/install   text eol=lf
+komari-agent/wizard/uninstall text eol=lf
+
+# 图片二进制
+*.png   binary
+*.PNG   binary
